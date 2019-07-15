@@ -74,7 +74,7 @@ class FuncIterativeCT :
   vector<std::vector<double> > c_t;
   int n_iteration;
   unsigned beingread=0;
-  bool isopen;
+  bool isopen=false;
 public:
   explicit FuncIterativeCT(const ActionOptions&);
   void calculate(); // this probably is not needed
