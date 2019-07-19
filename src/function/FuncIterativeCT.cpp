@@ -32,6 +32,7 @@
 #include <iostream>
 #include <memory>
 #include <numeric>
+#include <cmath>
 
 #define DP2CUTOFF 6.25
 
@@ -225,17 +226,31 @@ FuncIterativeCT::FuncIterativeCT(const ActionOptions&ao):
     // this should go in a function for the matrix multiplication
     prefactor /= hills[0].height;
 
-    for (int index_1=0 ; index_1<n_eval ; index_1++){
-      int time_1 = index_1*stride;
-      if (index_1 % 100 == 0) {
-        log << "  Done " << index_1 << " iterations over " <<  n_eval << "... \n";
-      }
-      double alpha = 0.0;
-      for (int index_2=0 ; index_2<=index_1 ; index_2++){
-        int time_2 =index_2*stride;
+    unsigned tot_proc=comm.Get_size();
+    unsigned proc=comm.Get_rank();
 
+    int chunk = floor(n_eval/tot_proc);
+    int remainder = n_eval % tot_proc;
+    unsigned int start, stop;
+
+    if (proc < remainder) {
+      start = proc * (chunk + 1);
+      stop = start + chunk + 1;
+    } else {
+      start = proc * chunk + remainder;
+      stop = start + (chunk - 1) + 1 ;
+    }
+
+
+    log << "  Evaluating the potential matrix with " << tot_proc << " number of processes" << "\n";
+
+    for (unsigned index_1=start ; index_1<stop ; index_1++){
+      unsigned time_1 = index_1*stride;
+      double alpha = 0.0;
+      for (unsigned index_2=0 ; index_2 <= index_1 ; index_2++){
+        unsigned time_2 =index_2*stride;
         double V_st_tp = 0.0;
-        for (int time=0 ; time<time_1 ; time++){
+        for (unsigned time=0 ; time<time_1 ; time++){
           V_st_tp += calculateOverlap(hills[time_2].center,hills[time]);
         }
         alpha = exp(-beta*V_st_tp*prefactor) ;
@@ -243,6 +258,9 @@ FuncIterativeCT::FuncIterativeCT(const ActionOptions&ao):
       }
       inst_pot[index_1] = 1.0/alpha ;
     }
+
+    comm.Sum(pot_matrix);
+    comm.Sum(inst_pot);
 
     log << "  Calculation of V(s(t),t') is finished! \n";
     log << "\n" ;
@@ -472,8 +490,8 @@ void FuncIterativeCT::calculate() {
 }
 
 void FuncIterativeCT::writeToFile(OFile& ofile){
-  for (unsigned int i=0; i<n_eval ; i++){
-    ofile.printField("neval",int(i*stride));
+  for (unsigned int i=0; i<n_eval ; ++i){
+    ofile.printField("neval",int((i)*stride));
     for (size_t l = 0; l < n_iteration; l++) {
       ofile.printField("c_t_"+std::to_string(l),-std::log(c_t[l][i])/beta);
     }
