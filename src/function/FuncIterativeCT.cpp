@@ -229,22 +229,9 @@ FuncIterativeCT::FuncIterativeCT(const ActionOptions&ao):
     unsigned tot_proc=comm.Get_size();
     unsigned proc=comm.Get_rank();
 
-    int chunk = floor(n_eval/tot_proc);
-    int remainder = n_eval % tot_proc;
-    unsigned int start, stop;
-
-    if (proc < remainder) {
-      start = proc * (chunk + 1);
-      stop = start + chunk + 1;
-    } else {
-      start = proc * chunk + remainder;
-      stop = start + (chunk - 1) + 1 ;
-    }
-
-
     log << "  Evaluating the potential matrix with " << tot_proc << " number of processes" << "\n";
 
-    for (unsigned index_1=start ; index_1<stop ; index_1++){
+    for (unsigned index_1=proc ; index_1<n_eval ; index_1+=tot_proc){
       unsigned time_1 = index_1*stride;
       double alpha = 0.0;
       for (unsigned index_2=0 ; index_2 <= index_1 ; index_2++){
